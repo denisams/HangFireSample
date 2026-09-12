@@ -50,8 +50,19 @@ Available endpoints (all `POST`):
 | `/api/jobs/fire-and-forget-with-error` | Enqueues a job that always throws, useful for seeing Hangfire's retry behavior in the dashboard. |
 | `/api/jobs/delayed?delay=00:01:00` | Schedules a job to run after the given `TimeSpan` (defaults to 1 minute). |
 | `/api/jobs/continuation` | Enqueues a parent job and a child job that only runs after the parent completes. |
+| `/api/jobs/notification?message=Hello` | Enqueues a job with a parameter passed in from the request. |
+| `/api/jobs/batch?itemCount=5` | Enqueues a job that processes a batch of items one by one, logging progress. |
+| `/api/jobs/long-running` | Enqueues a job simulating a multi-step, multi-second task. |
+| `/api/jobs/heartbeat/start` | (Re)starts the "every 10 seconds" heartbeat job (see below). |
+| `/api/jobs/heartbeat/stop` | Stops the heartbeat job after its current 10-second tick. |
 
 A recurring job (`hello-recurring`) is registered on startup and runs every minute — no need to trigger it manually.
+
+#### The "every 10 seconds" heartbeat job
+
+Hangfire's cron-based recurring jobs (`RecurringJob.AddOrUpdate`) can't go below a one-minute interval — cron itself has no seconds field. `SampleJobs.Heartbeat` works around this the way Hangfire's own docs recommend for sub-minute jobs: each run reschedules itself 10 seconds later via `BackgroundJobClient.Schedule`, as long as `SampleJobs.TryEnableHeartbeat`/`DisableHeartbeat` haven't turned it off. It's started automatically at application startup and can be stopped/restarted through the endpoints above. Because the sample uses `Hangfire.MemoryStorage`, all state (including this chain) resets on every restart, so it's safe to kick off unconditionally in `Program.cs`.
+
+Note that `AddHangfireServer` also lowers `SchedulePollingInterval` to 2 seconds (the default is 15s) — otherwise scheduled/delayed jobs, including this heartbeat, would only be picked up every 15 seconds regardless of the requested delay.
 
 ### Dashboard security
 
